@@ -1,0 +1,56 @@
+---
+title: "README"
+author: "Rasmus Kirkegaard"
+date: "21/09/2020"
+output: 
+    github_document:
+      html_preview: FALSE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Ecoli benchmarks
+**Objective:** Test if R10.3 data can produce nanopore only assemblies with an indel error rate on par with that of the hybrid approach or pacbio CCS (I finally got my hands on some data)
+
+**Strategy:** Use E. Coli K12 MG1655 reference strain data to produce a set assemblies and evaluate these with different assembly metrics in comparison to the “true” reference
+
+
+## Dependencies
+
+### Data
+
+### Assemblers
+* unicycler v.
+* spades v.
+* canu v.
+* flye v.
+
+### Polishing tools
+* racon v.
+* medaka v.
+
+### QC
+* checkm v.
+* fastANI v.
+* QUAST v.
+* prokka v.
+
+### Misc
+* guppy v. 
+* samtools v.
+* minimap2 v.
+* counterr v. 
+
+* `r R.version.string`
+  * tidyverse (v. `r packageVersion("tidyverse")`)
+  * data.table (v. `r packageVersion("data.table")`)
+  * rmarkdown (v. `r packageVersion("rmarkdown")`)
+
+# My computer
+
+```{r message=FALSE, echo=FALSE,warning=FALSE}
+sessionInfo()
+```
+
