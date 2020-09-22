@@ -1,0 +1,9 @@
+data/
+*logfile
+*.zip
+*.gz
+*.
+code/.Rhistory
+.Rproj.user
+.Rhistory
+.html

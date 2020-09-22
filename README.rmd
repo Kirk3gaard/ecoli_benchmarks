@@ -1,10 +1,8 @@
 ---
 title: "README"
 author: "Rasmus Kirkegaard"
-date: "21/09/2020"
-output: 
-    github_document:
-      html_preview: FALSE
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -12,37 +10,151 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Ecoli benchmarks
-**Objective:** Test if R10.3 data can produce nanopore only assemblies with an indel error rate on par with that of the hybrid approach or pacbio CCS (I finally got my hands on some data)
+**Objective:** Test if R10.3 data can produce nanopore only assemblies with an indel error rate on par with that of the hybrid approach
 
 **Strategy:** Use E. Coli K12 MG1655 reference strain data to produce a set assemblies and evaluate these with different assembly metrics in comparison to the “true” reference
 
 
+# Assembly comparison for Ecoli K12MG1655 using R10.3 data guppy v. 4.0.1.14 HAC
+Hoping to some day produce nanopore only assemblies it is important to assess different assembly and polishing strategies whenever there is a major update. The release of R10.3 pores promised to improve errors in homopolymers and thus represent a major update. As an example E coli K12MG1655 is used as it is expected to have a pretty good reference assembly for comparison. 
+
+
+
+```{r load_libraries,warning=FALSE,echo=FALSE,message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(ggrepel)
+library(forcats)
+```
+
+```{r load_data,fig.height=15, warning=FALSE,echo=FALSE,message=FALSE}
+drRNA<-read.delim(file = "data/numrRNA.csv",sep = ",")
+names(drRNA)<-c("Assembly","Prokka # rRNA")
+dtRNA<-read.delim(file = "data/numtRNA.csv",sep = ",")
+names(dtRNA)<-c("Assembly","Prokka # tRNA")
+dCDS<-read.delim(file = "data/numCDS.csv",sep = ",")
+names(dCDS)<-c("Assembly","Prokka # CDS")
+checkm<-read.delim(file = "data/checkm.tsv",sep = "\t")
+names(checkm)[1]<-"Assembly"
+d<-read.delim(file = "data/transposed_report.tsv",sep = "\t")
+ani<-read.delim(file = "data/fastANI.txt",header = F)
+ani$V1<-gsub(pattern = "results/assemblies/",replacement = "",x = ani$V1)
+ani$V1<-gsub(pattern = ".fa",replacement = "",x = ani$V1)
+ani<-ani %>% select(V1,V3)
+names(ani)<-c("Assembly","ANI")
+d<-full_join(d,ani)
+
+ds<-d %>% select(Assembly,X..contigs,Total.length,X..mismatches.per.100.kbp,X..indels.per.100.kbp,ANI) %>% arrange(desc(ANI))
+names(ds)<-c("Assembly","N_contigs","Size (bp)","MM100kb","Indel100kb","ANI (%)")
+
+ds$MM100kb<-gsub(pattern = "-",replacement = NA,x = ds$MM100kb)
+ds$MM100kb<-as.numeric(ds$MM100kb)
+ds$Indel100kb<-gsub(pattern = "-",replacement = NA,x = ds$Indel100kb)
+ds$Indel100kb<-as.numeric(ds$Indel100kb)
+figH<-nrow(ds)*0.33
+ds<-ds %>% mutate(MMErrors=round(MM100kb*4639675/10^5), IndelErrors=round(Indel100kb*4639675/10^5))
+ds_checkm<-checkm %>% select(Assembly,Completeness,Contamination,Strain.heterogeneity) %>% full_join(ds)
+names(ds_checkm)<-gsub(pattern = "\\." ,replacement = "\n",x = names(ds_checkm))
+ds_checkm<-full_join(ds_checkm,dCDS) %>% full_join(dtRNA) %>% full_join(drRNA) #%>% full_join(GeneLenSummary)
+names(ds_checkm)<-sub(pattern = "Prokka #",replacement = "Prokka\n#",x = names(ds_checkm))
+names(ds_checkm)<-sub(pattern = "Errors",replacement = "\nErrors",x = names(ds_checkm))
+ds_checkm<-ds_checkm %>% mutate(ANI_Phredscore=round(-10*log10(1-(`ANI (%)`)/100)))
+names(ds_checkm)<-sub(pattern = "ANI_Phredscore",replacement = "ANI\nPhred\nscore",x = names(ds_checkm))
+```
+
+## Sorted by ANI
+
+
+```{r sort_byfig.height=figH,fig.width=16, warning=FALSE,echo=FALSE,message=FALSE}
+tt2 <- ttheme_default(core=list(fg_params=list(hjust=1, x = 0.95, fontsize = 10)),
+                      colhead=list(fg_params=list(fontsize = 12)))
+grid.table(ds_checkm %>% arrange(desc(`ANI (%)`)), rows= NULL, theme = tt2)
+```
+
+
+## Sorted by indelrate
+
+```{r fig.height=figH,fig.width=16, warning=FALSE,echo=FALSE,message=FALSE}
+grid.table(ds_checkm %>% arrange(Indel100kb), rows= NULL, theme = tt2)
+lowest_NP_indelrate<-ds_checkm %>% filter(!grepl("Unicycler",Assembly) & !grepl("ILM",Assembly) & !grepl("reference",Assembly) & !grepl("pilon",Assembly)) %>% filter(Indel100kb==min(Indel100kb)) %>% select(Indel100kb)
+```
+
+
+## Sorted by mismatch rate
+
+```{r fig.height=figH,fig.width=16, warning=FALSE,echo=FALSE,message=FALSE}
+grid.table(ds_checkm %>% arrange(MM100kb), rows= NULL, theme = tt2)
+```
+
+# Will short read polishing ruin true differences in repeats?
+For multicopy genes with high similarity but not necessarily identical copies such as the 16S rRNA gene there is a risk that polishing with short reads will average out true differences and produce a chimeric consensus. This would be the result of reads not spanning the repeat region and thus mapping randomly. However, if there is just enough correct sequence to allow short reads to map better to a different location this would not be a problem and truly identical copies will still be identical. Another risk with polishing is that a repeat region contains a drastic error in the first place and thus never recruits any reads to polish the section as the reads preferentially map to one of the other copies. The reference genome has 7 copies of the 16S rRNA gene, two of which are identical and others with up to 15 mismatches.
+
+
+```{r fig.height=40,fig.width=10, echo=FALSE,warning=FALSE, eval=TRUE, message=FALSE}
+d<-read.delim(file = "data/16S_alignments.tsv",header = F,sep = "\t")#[,1:3]
+names(d)<-c("query","ref","id","alnlength","n_mismatches","n_gapopen","qstart", "qend", "sstart", "send", "evalue", "bitscore")
+
+d_proc<-d %>% group_by(query) %>% filter(id==max(id))
+#d_proc$ASM=gsub(x=d_proc$query,replacement = "",pattern = "_16S_rRNA\\.[0-9]")
+d_proc$ASM=gsub(x=d_proc$query,replacement = "",pattern = "\\.[0-9]")
+d_proc$qno<-gsub(x=d_proc$query,replacement = "",pattern = ".*\\.")
+d_proc$ASM<-factor(d_proc$ASM)
+
+d_proc<-d_proc %>% group_by(ASM) %>% mutate(minID=min(id))
+d_proc$ASM<-factor(x = d_proc$ASM)
+
+d_proc <- within(d_proc, ASM <- reorder(ASM, minID))
+d_proc <- d_proc %>% mutate(n_gap_and_mismatches=n_mismatches+n_gapopen)
+
+#d_proc_nodups<-d_proc %>% group_by(query) %>% filter(id==max(id)) %>% top_n(n = 1)
+
+#d_proc_nodups<-d_proc %>% group_by(query) %>% filter(alnlength>1000 & id==max(id))  %>% arrange(desc(id)) %>% top_n(1)
+d_proc_nodups<-d_proc %>% group_by(query) %>% filter(alnlength>1000 & id==max(id))  %>% arrange(desc(id)) %>% top_n(1,wt = id) %>% distinct(query,.keep_all = T)
+
+d_proc_nodups<-d_proc_nodups %>% group_by(ASM) %>% mutate(combinederrors=sum(n_gap_and_mismatches)) %>% ungroup()
+
+p1<-ggplot(data = d_proc_nodups %>% mutate(ASM = fct_reorder(ASM, combinederrors)),aes(x = ref,y = ASM,col=qno))+facet_wrap(~ASM,ncol = 1,scales = "free_y")+#geom_text(aes(label=id))+
+  geom_label_repel(aes(label=n_gap_and_mismatches),direction = "y",point.padding = NA,segment.color = NA)+theme(legend.position = "none")
+p1
+```
+
+## Conclusion
+The best indel rate for a nanopore only assembly is `r lowest_NP_indelrate`/100kb which is pretty amazing!!! And we get perfect 16S sequences!!!
+
 ## Dependencies
 
+## Aim
+To test whether there is an assembly+polishing strategy that can remove the need for polishing with short reads.
+
 ### Data
+* ~50x worth of R10.3 guppy w. high accuracy mode (own production)
+* ~50x worth of Illumina from: [SRR2627175](https://www.ebi.ac.uk/ena/data/view/SRR2627175)
+* Reference assembly: [U00096.2](https://www.ncbi.nlm.nih.gov/nuccore/U00096.2)
 
-### Assemblers
-* unicycler v.
-* spades v.
-* canu v.
-* flye v.
+### Assemblers:
+* [CANU (v. 2.0)](https://github.com/marbl/canu)
+* [miniasm (v. 0.3)](https://github.com/lh3/miniasm)
+* [FLYE (v. 2.6)](https://github.com/fenderglass/Flye)
+* [WTDBG2 (v. 2.4)](https://github.com/ruanjue/wtdbg2)
+* [Unicycler (v. 0.4.6)](https://github.com/rrwick/Unicycler)
 
-### Polishing tools
-* racon v.
-* medaka v.
+### Polishing tools:
+* [Medaka (v. 1.0.1)](https://github.com/nanoporetech/medaka)
+* [racon (v. 1.3.3)](https://github.com/isovic/racon)
+* [pilon (v. 1.23)](https://github.com/broadinstitute/pilon)
 
 ### QC
-* checkm v.
-* fastANI v.
-* QUAST v.
-* prokka v.
+* [CheckM (v. 1.1.2)](https://ecogenomics.github.io/CheckM/)
+* [fastANI (v. 1.2)](https://github.com/ParBLiSS/FastANI)
+* [Barrnap (v. 0.9)](https://github.com/tseemann/barrnap)
+* [usearch (v. 11)](https://www.drive5.com/usearch/)
+* [QUAST (v. 4.6.3)](http://quast.sourceforge.net/)
+* [PROKKA (v. 1.14)](https://github.com/tseemann/prokka/)
 
-### Misc
-* guppy v. 
-* samtools v.
-* minimap2 v.
-* counterr v. 
-
+### Misc.
+* [minimap2 (v. 2.15)](https://github.com/lh3/minimap2)
+* [samtools (v. 1.10)](http://www.htslib.org/)
 * `r R.version.string`
   * tidyverse (v. `r packageVersion("tidyverse")`)
   * data.table (v. `r packageVersion("data.table")`)
