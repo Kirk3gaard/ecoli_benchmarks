@@ -29,6 +29,8 @@ library(forcats)
 ```
 
 ```{r load_data,fig.height=15, warning=FALSE,echo=FALSE,message=FALSE}
+tt2 <- ttheme_default(core=list(fg_params=list(hjust=1, x = 0.95, fontsize = 10)),
+                      colhead=list(fg_params=list(fontsize = 12)))
 drRNA<-read.delim(file = "data/numrRNA.csv",sep = ",")
 names(drRNA)<-c("Assembly","Prokka # rRNA")
 dtRNA<-read.delim(file = "data/numtRNA.csv",sep = ",")
@@ -63,12 +65,11 @@ ds_checkm<-ds_checkm %>% mutate(ANI_Phredscore=round(-10*log10(1-(`ANI (%)`)/100
 names(ds_checkm)<-sub(pattern = "ANI_Phredscore",replacement = "ANI\nPhred\nscore",x = names(ds_checkm))
 ```
 
+
 ## Sorted by ANI
 
 
-```{r sort_byfig.height=figH,fig.width=16, warning=FALSE,echo=FALSE,message=FALSE}
-tt2 <- ttheme_default(core=list(fg_params=list(hjust=1, x = 0.95, fontsize = 10)),
-                      colhead=list(fg_params=list(fontsize = 12)))
+```{r fig.height=figH,fig.width=16, warning=FALSE,echo=FALSE,message=FALSE}
 grid.table(ds_checkm %>% arrange(desc(`ANI (%)`)), rows= NULL, theme = tt2)
 ```
 
