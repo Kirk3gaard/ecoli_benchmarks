@@ -21,6 +21,11 @@ homopolymers and thus represent a major update. As an example E coli
 K12MG1655 is used as it is expected to have a pretty good reference
 assembly for comparison.
 
+## Conclusion
+
+The best indel rate for a nanopore only assembly is 1.19/100kb which is
+pretty amazing\!\!\! And we get perfect 16S sequences\!\!\!
+
 ## Sorted by ANI
 
 ![](README_files/figure-gfm/unnamed-chunk-1-1.png)<!-- -->
@@ -50,17 +55,7 @@ gene, two of which are identical and others with up to 15 mismatches.
 
 ![](README_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
-## Conclusion
-
-The best indel rate for a nanopore only assembly is 1.19/100kb which is
-pretty amazing\!\!\! And we get perfect 16S sequences\!\!\!
-
 ## Dependencies
-
-## Aim
-
-To test whether there is an assembly+polishing strategy that can remove
-the need for polishing with short reads.
 
 ### Data
 

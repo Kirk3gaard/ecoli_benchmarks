@@ -63,8 +63,12 @@ names(ds_checkm)<-sub(pattern = "Prokka #",replacement = "Prokka\n#",x = names(d
 names(ds_checkm)<-sub(pattern = "Errors",replacement = "\nErrors",x = names(ds_checkm))
 ds_checkm<-ds_checkm %>% mutate(ANI_Phredscore=round(-10*log10(1-(`ANI (%)`)/100)))
 names(ds_checkm)<-sub(pattern = "ANI_Phredscore",replacement = "ANI\nPhred\nscore",x = names(ds_checkm))
+lowest_NP_indelrate<-ds_checkm %>% filter(!grepl("Unicycler",Assembly) & !grepl("ILM",Assembly) & !grepl("reference",Assembly) & !grepl("pilon",Assembly)) %>% filter(Indel100kb==min(Indel100kb)) %>% select(Indel100kb)
 ```
 
+
+## Conclusion
+The best indel rate for a nanopore only assembly is `r lowest_NP_indelrate`/100kb which is pretty amazing!!! And we get perfect 16S sequences!!!
 
 ## Sorted by ANI
 
@@ -78,7 +82,6 @@ grid.table(ds_checkm %>% arrange(desc(`ANI (%)`)), rows= NULL, theme = tt2)
 
 ```{r fig.height=figH,fig.width=16, warning=FALSE,echo=FALSE,message=FALSE}
 grid.table(ds_checkm %>% arrange(Indel100kb), rows= NULL, theme = tt2)
-lowest_NP_indelrate<-ds_checkm %>% filter(!grepl("Unicycler",Assembly) & !grepl("ILM",Assembly) & !grepl("reference",Assembly) & !grepl("pilon",Assembly)) %>% filter(Indel100kb==min(Indel100kb)) %>% select(Indel100kb)
 ```
 
 
@@ -120,13 +123,7 @@ p1<-ggplot(data = d_proc_nodups %>% mutate(ASM = fct_reorder(ASM, combinederrors
 p1
 ```
 
-## Conclusion
-The best indel rate for a nanopore only assembly is `r lowest_NP_indelrate`/100kb which is pretty amazing!!! And we get perfect 16S sequences!!!
-
 ## Dependencies
-
-## Aim
-To test whether there is an assembly+polishing strategy that can remove the need for polishing with short reads.
 
 ### Data
 * ~50x worth of R10.3 guppy w. high accuracy mode (own production)
