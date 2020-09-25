@@ -22,6 +22,8 @@ data/assemblies/NPR10_HAC_miniasm_raconNP.fa : code/run_raconNP.sh\
 
 
 # Make report
+data/transposed_report.tsv : code/get_premade_data.sh
+	bash ./code/get_premade_data.sh
 
 README.md : README.rmd
 	R -e "library(rmarkdown); render('README.rmd')"
